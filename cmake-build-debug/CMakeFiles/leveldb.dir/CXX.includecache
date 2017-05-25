@@ -35,6 +35,16 @@ slice.hpp
 /home/giorgi/CLionProjects/leveldb/main.cpp
 iostream
 -
+memory
+-
+gtest/gtest.h
+-
+vector
+-
+algorithm
+-
+climits
+-
 include/slice.hpp
 /home/giorgi/CLionProjects/leveldb/include/slice.hpp
 include/cache.hpp
