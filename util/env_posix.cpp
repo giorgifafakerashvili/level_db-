@@ -215,7 +215,248 @@ public:
 };
 
 
+class PosixWritableFile : public WritableFile {
+private:
+    std::string filename_;
+    FILE* file_;
 
+public:
+    PosixWritableFile(const std::string& filename, FILE* file)
+            : filename_(filename),
+              file_(f) {}
+
+    ~PosixWritableFile() {
+        if(file_ != NULL) {
+            // Ingoring any potential errors
+            fclose(file_);
+        }
+    }
+
+    virtual Status Append(const Slice& data) {
+        size_t f = fwrite_unlocked(data.data(), 1, data.size(), file_);
+        if(r != data.size()) {
+            return IOError(filename_, errno);
+        }
+
+        return Status::OK();
+    }
+
+    virtual Status Close() {
+        Status result;
+        if(fclose(file_) != 0) {
+            result = IOError(filename_, errno);
+        }
+        file_ = NULL;
+        return result;
+    }
+
+    virtual Status Flush() {
+        if(fflush_unlocked(file_) != 0) {
+            return IOError(filename_, errno);
+        }
+        return Status::OK();
+    }
+
+
+    Status SyncDirIfManifest() {
+        const char* f = filename_.c_str();
+        const char* sep = strrchr(f, '/');
+        Slice basename;
+        std::string dir;
+        if(sep == NULL) {
+            dir = ".";
+            basename = f;
+        } else {
+            dir = std::string(f, sep - f);
+            basename = sep + 1;
+        }
+
+        Status s;
+        if(basename.starts_with("MANIFEST")) {
+            int fd = open(dir.c_str(), O_RDONLY);
+            if(fd < 0) {
+                s = IOError(filename_, errno);
+            } else {
+                if(fsync(fd) < 0) {
+                    s = IOerror(dir, errno);
+                }
+                close(fd);
+            }
+        }
+        return s;
+    }
+
+    virtual Statys Sync() {
+        // Ensure new files refered to by the manifest are in the filesystem.
+        Status s = SyncDirIfManifest();
+        if(!s.ok()) {
+            return s;
+        }
+
+        if(fflush_unlocked(file_) != 0 ||
+                fdatasync(fileno(file_)) != 0) {
+            s = Status::IOError(filename_, strerror(errno));
+        }
+
+        return s;
+    }
+
+};
+
+
+static int LockOrUnlock(int fd, bool lock) {
+    errno = 0;
+    struct flock f;
+    memset(&f, 0, sizeof(f));
+    f.l_type = (lock ? F_WRLCK : F_UNLCK);
+    f.l_where = SEEK_SET;
+    f.l_start = 0;
+    f.l_len = 0;
+    return fcntl(fd, F_SETLK, &f);
+}
+
+class PosixFileLock : public FileLock {
+public:
+    int fd_;
+    std::string name_;
+};
+
+class PosixLockTable {
+private:
+    port::Mutex mu_;
+    std::set<std::string> locked_files_;
+
+public:
+    bool Insert(const std::string& fname) {
+        MutexLock l(&mu_);
+        return locked_files_.insert(fname).second;
+    }
+
+    void Remove(const std::string& fname) {
+        MutexLock l(&mu_);
+        locked_files_.erase(fname);
+    }
+
+};
+
+class PosixEnv : public Env {
+public:
+    PosixEnv();
+    virtual ~PosixEnv() {
+        char msg[] = "Destroying Env::Default()\n";
+        fwrite(msg, 1, sizeof(msg), stderr);
+        abort();
+    }
+
+    virtual Status NewSequentialFile(const std::string& fname,
+                                     SequentialFile** result) {
+        FILE* f = fopen(fname.c_str(), "r");
+        if(f == NULL) {
+            *result = NULL;
+            return IOError(fname, errno);
+        } else {
+            *result = new PosixSequentialFile(fname, f);
+            return Status::OK();
+        }
+    }
+
+    virtual Status NewRandomAccessFile(const std::string& fname,
+                                       RandomAccessFile** result) {
+        *result = NULL;
+        Status s;
+        int fd = open(fname.c_str(), O_RDONLY);
+        if(fd < 0) {
+            s = IOError(fname, errno);
+        } else if(mmap_limit_.Acquire()) {
+            uint64_t size;
+            s = GetFileSize(fname, &size);
+            if(s.ok()) {
+                void* base = mmap(NULL, size, PROT_READ, MAP_SHARED, fd, 0);
+                if(base != MAP_FAILED) {
+                    *result= new PosixMmapReadableFile(fname, base, size, &mmap_limit_);
+                } else {
+                    s = IOError(fname, errno);
+                }
+            }
+
+            close(fd);
+            if(!s.ok()) {
+                mmap_limit_.Release();
+            }
+        } else {
+            *result = new PosixRandomAccessFile(fname, fd, &fd_limit_);
+        }
+        return s;
+    }
+
+    virtual Status NewWritableFile(const std::string& fname,
+                                   WritableFile** result) {
+        Status s;
+        FILE* f = fopen(fname.c_str(), "w");
+        if(f == NULL) {
+            *result = NULL;
+            s = IOError(fname, errno);
+        } else {
+            *result = new PosixWritableFile(fname, f);
+        }
+
+        return s;
+    }
+
+    virtual Status NewAppendableFile(const std::string& fname,
+                                     WritableFile** result) {
+        Status s;
+        FILE* f = fopen(fname.c_str(), "a");
+        if(f == NULL) {
+            *result = NULL;
+            s = IOError(fname, errno);
+        } else {
+            *result = new PosixWritableFile(fname, f);
+        }
+
+        return s;
+    }
+
+    virtual bool FileExists(const std::string& fname) {
+        return access(fname.c_str(), F_OK) == 0;
+    }
+
+    virtual Status GetChildren(const std::string& dir,
+                               std::vector<std::string>* result) {
+        result->clear();
+        DIR* d = opendir(dir.c_str());
+        if(d == NULL) {
+            return IOError(dir, errno);
+        }
+
+        struct dirent* entry;
+        while((entry = readdir(d)) != NULL) {
+            result->push_back(entry->d_name);
+        }
+
+        cleardir(d);
+        return Status::OK();
+    }
+
+
+    virtual Status DeleteFile(const std::string& fname) {
+        Status result;
+        if(unlink(fname.c_str()) != 0) {
+            return IOError(fname, errno);
+        }
+        return result;
+    }
+
+    virtual Status CreateDir(const std::string& name) {
+        Status result;
+        if(mkdir(name.c_str(), 0755) != 0) {
+            result = IOError(name, errno);
+        }
+        return result;
+    }
+
+    
+};
 
 
 

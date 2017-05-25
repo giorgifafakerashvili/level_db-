@@ -32,7 +32,9 @@
     </configurations>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="8a99ef48-41ba-4418-93b3-e8556467eeff" name="Default" comment="" />
+    <list default="true" id="8a99ef48-41ba-4418-93b3-e8556467eeff" name="Default" comment="">
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/util/env_posix.cpp" afterPath="$PROJECT_DIR$/util/env_posix.cpp" />
+    </list>
     <ignored path="$PROJECT_DIR$/cmake-build-debug/" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
@@ -73,8 +75,8 @@
       <file leaf-file-name="env_posix.cpp" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/util/env_posix.cpp">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="703">
-              <caret line="217" column="0" lean-forward="true" selection-start-line="217" selection-start-column="0" selection-end-line="217" selection-end-column="0" />
+            <state relative-caret-position="718">
+              <caret line="457" column="4" lean-forward="false" selection-start-line="457" selection-start-column="4" selection-end-line="457" selection-end-column="4" />
               <folding />
             </state>
           </provider>
@@ -487,12 +489,12 @@
       <option name="presentableId" value="Default" />
       <updated>1495136619116</updated>
       <workItem from="1495136621470" duration="18304000" />
-      <workItem from="1495734599856" duration="2802000" />
+      <workItem from="1495734599856" duration="5813000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="21106000" />
+    <option name="totallyTimeSpent" value="24117000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="65" y="24" width="1535" height="876" extended-state="6" />
@@ -765,8 +767,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/util/env_posix.cpp">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="703">
-          <caret line="217" column="0" lean-forward="true" selection-start-line="217" selection-start-column="0" selection-end-line="217" selection-end-column="0" />
+        <state relative-caret-position="718">
+          <caret line="457" column="4" lean-forward="false" selection-start-line="457" selection-start-column="4" selection-end-line="457" selection-end-column="4" />
           <folding />
         </state>
       </provider>
