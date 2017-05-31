@@ -101,7 +101,7 @@ TEST(SkipTest, InsertAndLookup) {
                 ASSERT_TRUE(iter.Valid());
                 ASSERT_EQ(*model_iter, iter.key());
                 ++model_iter;
-                iter.Next(); 
+                iter.Next();
             }
         }
     }
