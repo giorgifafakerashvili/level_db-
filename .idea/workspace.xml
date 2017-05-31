@@ -33,7 +33,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="8a99ef48-41ba-4418-93b3-e8556467eeff" name="Default" comment="">
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/db/skip_list_test.cpp" afterPath="$PROJECT_DIR$/db/skip_list_test.cpp" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/db/dp_impl.cpp" afterPath="$PROJECT_DIR$/db/dp_impl.cpp" />
     </list>
     <ignored path="$PROJECT_DIR$/cmake-build-debug/" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -111,7 +111,19 @@
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="testharness.cpp" pinned="false" current-in-tab="true">
+      <file leaf-file-name="dp_impl.cpp" pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/db/dp_impl.cpp">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="718">
+              <caret line="403" column="0" lean-forward="true" selection-start-line="403" selection-start-column="0" selection-end-line="403" selection-end-column="0" />
+              <folding>
+                <element signature="e#1637#1655#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="testharness.cpp" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/util/testharness.cpp">
           <provider selected="true" editor-type-id="text-editor">
             <state relative-caret-position="210">
@@ -120,16 +132,6 @@
                 <element signature="e#1721#1730#0" expanded="true" />
                 <element signature="e#1885#1903#0" expanded="true" />
               </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="write_batch.h" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/include/write_batch.h">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="615">
-              <caret line="41" column="0" lean-forward="false" selection-start-line="41" selection-start-column="0" selection-end-line="41" selection-end-column="0" />
-              <folding />
             </state>
           </provider>
         </entry>
@@ -188,7 +190,6 @@
         <option value="$PROJECT_DIR$/include/write_batch.h" />
         <option value="$PROJECT_DIR$/db/write_batch.cpp" />
         <option value="$PROJECT_DIR$/db/dp_impl.hpp" />
-        <option value="$PROJECT_DIR$/db/dp_impl.cpp" />
         <option value="$PROJECT_DIR$/db/skip_list_test.cpp" />
         <option value="$PROJECT_DIR$/util/util.hpp" />
         <option value="$PROJECT_DIR$/util/arena.cpp" />
@@ -196,6 +197,7 @@
         <option value="$PROJECT_DIR$/util/arena_test.cpp" />
         <option value="$PROJECT_DIR$/util/random.hpp" />
         <option value="$PROJECT_DIR$/util/testharness.cpp" />
+        <option value="$PROJECT_DIR$/db/dp_impl.cpp" />
       </list>
     </option>
   </component>
@@ -507,12 +509,12 @@
       <workItem from="1495783411741" duration="12000" />
       <workItem from="1495996128706" duration="30000" />
       <workItem from="1496074933191" duration="206000" />
-      <workItem from="1496211510865" duration="7733000" />
+      <workItem from="1496211510865" duration="9054000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="39534000" />
+    <option name="totallyTimeSpent" value="40855000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="65" y="24" width="1535" height="876" extended-state="6" />
@@ -845,14 +847,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/db/dp_impl.cpp">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="465">
-          <caret line="31" column="0" lean-forward="false" selection-start-line="31" selection-start-column="0" selection-end-line="31" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/include/write_batch.h">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="615">
@@ -942,6 +936,16 @@
           <folding>
             <element signature="e#1721#1730#0" expanded="true" />
             <element signature="e#1885#1903#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/db/dp_impl.cpp">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="718">
+          <caret line="403" column="0" lean-forward="true" selection-start-line="403" selection-start-column="0" selection-end-line="403" selection-end-column="0" />
+          <folding>
+            <element signature="e#1637#1655#0" expanded="true" />
           </folding>
         </state>
       </provider>
