@@ -402,8 +402,173 @@ Status DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
     return Status::OK();
 }
 
+
+
+Status DPImpl::RecoverLogFile(uint64_t log_number, bool last_log,
+                              bool* save_manifest, VersionEdit* edit,
+                              SequenceNumber* max_sequence) {
+    struct LogReporter : public log::Reader::Reporter {
+        Env* evn;
+        Logger* info_log;
+        const char* fname;
+        Status* status; // NULL if options_.paranoid_check == false
+        virtual void Corruption(size_t bytes, const Status& s) {
+            Log(info_log, )
+        }
+    };
+
+    mutex_.AssertHeld();
+
+    // Open the log file
+    std::string fname = LogFileName(dbname_, log_number);
+    SequenceFile* file;
+    Status status = env_->NewSeuqntialFile(fname, &file);
+    if(!status.ok()) {
+      MaybeIgnoreError(&status);
+      return status;
+    }
+
+    // Create the log reader.
+    LogRepoerter reporter;
+    reporter.env = env_;
+ reporter.info_log = options_.info_log;
+ reporter.fname = fname.c_str();
+ reporter.status = (options_.paranoid_checks ? &status : NULL);
+ // We intentionally make log::Reader do checksumming even if
+ // paranoid_checks==false so that corruptions cause entire commits
+ // to be skipped instead of propagating bad information (like overly
+ // large sequence numbers).
+ log::Reader reader(file, &reporter, true/*checksum*/,
+                    0/*initial_offset*/);
+ Log(options_.info_log, "Recovering log #%llu",
+     (unsigned long long) log_number);
+
+ // Read all the records and add to a memtable
+ std::string scratch;
+ Slice record;
+ WriteBatch batch;
+ int compactions = 0;
+ MemTable* mem = NULL;
+ while (reader.ReadRecord(&record, &scratch) &&
+        status.ok()) {
+   if (record.size() < 12) {
+     reporter.Corruption(
+         record.size(), Status::Corruption("log record too small"));
+     continue;
+   }
+   WriteBatchInternal::SetContents(&batch, record);
+
+   if (mem == NULL) {
+     mem = new MemTable(internal_comparator_);
+     mem->Ref();
+   }
+   status = WriteBatchInternal::InsertInto(&batch, mem);
+   MaybeIgnoreError(&status);
+   if (!status.ok()) {
+     break;
+   }
+   const SequenceNumber last_seq =
+       WriteBatchInternal::Sequence(&batch) +
+       WriteBatchInternal::Count(&batch) - 1;
+   if (last_seq > *max_sequence) {
+     *max_sequence = last_seq;
+   }
+
+   if (mem->ApproximateMemoryUsage() > options_.write_buffer_size) {
+     compactions++;
+     *save_manifest = true;
+     status = WriteLevel0Table(mem, edit, NULL);
+     mem->Unref();
+     mem = NULL;
+     if (!status.ok()) {
+       // Reflect errors immediately so that conditions like full
+       // file-systems cause the DB::Open() to fail.
+       break;
+     }
+   }
+ }
+
+ delete file;
+
+ // See if we should keep reusing the last log file.
+ if (status.ok() && options_.reuse_logs && last_log && compactions == 0) {
+   assert(logfile_ == NULL);
+   assert(log_ == NULL);
+   assert(mem_ == NULL);
+   uint64_t lfile_size;
+   if (env_->GetFileSize(fname, &lfile_size).ok() &&
+       env_->NewAppendableFile(fname, &logfile_).ok()) {
+     Log(options_.info_log, "Reusing old log %s \n", fname.c_str());
+     log_ = new log::Writer(logfile_, lfile_size);
+     logfile_number_ = log_number;
+     if (mem != NULL) {
+       mem_ = mem;
+       mem = NULL;
+     } else {
+       // mem can be NULL if lognum exists but was empty.
+       mem_ = new MemTable(internal_comparator_);
+       mem_->Ref();
+     }
+   }
+ }
+
+ if (mem != NULL) {
+   // mem did not get reused; compact it.
+   if (status.ok()) {
+     *save_manifest = true;
+     status = WriteLevel0Table(mem, edit, NULL);
+   }
+   mem->Unref();
+ }
+
+  return status;
+}
+
+Status DBImpl::WriteLevel10Table(MemTable* mem, VersionEdit* edit,
+                                 Version* base)
+{
+  mutex_.AssertHeld();
+  const uint64_t start_micros = env_->NowMicros();
+  FileMetaData meta;
+  meta.number = versions_->NewFileNumber();
+  pending_outputs_.insert(meta.number);
+  Log(options_.info_log, "Level-0 table #%llu: started", 
+      (unsigned long long) meta.number); 
+
+  Status s; 
+  {
+    mutex_.Unlock(); 
+    s = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta); 
+    mutex_.Lock(); 
+  }
+
+  Log(options_.info_log, "Level10"); 
+
+  delete iter;
+  pending_outputs_.erase(meta.number);
+
+
+  // Note that if file_size is zero, the file has been deleted and
+  // should not be added to the manifest.
+  int level = 0;
+  if (s.ok() && meta.file_size > 0) {
+    const Slice min_user_key = meta.smallest.user_key();
+    const Slice max_user_key = meta.largest.user_key();
+    if (base != NULL) {
+      level = base->PickLevelForMemTableOutput(min_user_key, max_user_key);
+    }
+    edit->AddFile(level, meta.number, meta.file_size,
+                  meta.smallest, meta.largest);
+  }
+
+  CompactionStats stats;
+  stats.micros = env_->NowMicros() - start_micros;
+  stats.bytes_written = meta.file_size;
+  stats_[level].Add(stats);
+  return s;
+  
 }
 
 Snapshot::~Snapshot() {
-}
 
+}

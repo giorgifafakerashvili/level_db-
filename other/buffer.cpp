@@ -117,5 +117,19 @@ void buffer_append_string_len(buffer* b, const char* s, size_t s_len) {
 
     memcpy(target_buf, s, s_len);
 
-    buffer_commit(s, s_len); 
+    buffer_commit(s, s_len);
 }
+
+char hex2int(unsigned char hex) {
+    unsigned char value = hex - '0';
+    if(value > 9) {
+        hex |= 0x20; // to lower case
+        value = hex - 'a' + 10;
+        if(value < 10) value = 0xff;
+    }
+
+    if(value > 15) value = 0xff;
+
+    return value;
+}
+
