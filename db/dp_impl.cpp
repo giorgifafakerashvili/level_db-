@@ -532,17 +532,17 @@ Status DBImpl::WriteLevel10Table(MemTable* mem, VersionEdit* edit,
   FileMetaData meta;
   meta.number = versions_->NewFileNumber();
   pending_outputs_.insert(meta.number);
-  Log(options_.info_log, "Level-0 table #%llu: started", 
-      (unsigned long long) meta.number); 
+  Log(options_.info_log, "Level-0 table #%llu: started",
+      (unsigned long long) meta.number);
 
-  Status s; 
+  Status s;
   {
-    mutex_.Unlock(); 
-    s = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta); 
-    mutex_.Lock(); 
+    mutex_.Unlock();
+    s = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta);
+    mutex_.Lock();
   }
 
-  Log(options_.info_log, "Level10"); 
+  Log(options_.info_log, "Level10");
 
   delete iter;
   pending_outputs_.erase(meta.number);
@@ -570,25 +570,25 @@ Status DBImpl::WriteLevel10Table(MemTable* mem, VersionEdit* edit,
 }
 
 void DBImpl::CompactMemtable() {
-  mutex_.AssertHeld(); 
-  assert(imm_ != NULL); 
+  mutex_.AssertHeld();
+  assert(imm_ != NULL);
 
-  // Save the contents of the memtable as a new Table 
-  VersionEdit edit; 
-  Version* base = versions_->current(); 
-  base->Ref(); 
-  Status s = WriteLevel10Table(imm_, &edit, base); 
-  base->Unref(); 
+  // Save the contents of the memtable as a new Table
+  VersionEdit edit;
+  Version* base = versions_->current();
+  base->Ref();
+  Status s = WriteLevel10Table(imm_, &edit, base);
+  base->Unref();
 
   if(s.ok() && shutting_down_.Acquire_Load()) {
-    s = Status::IOError("Deleting DB during memtable compaction"); 
+    s = Status::IOError("Deleting DB during memtable compaction");
   }
 
-  // Rreplace immutable memtable with the generated Table 
+  // Rreplace immutable memtable with the generated Table
   if(s.ok()) {
-    edit.SetPrevLogNumber(0); 
-    edit.SetLogNumber(logfile_number_); // Earlier logs no longer needed 
-    s = version_->LogAndApply(&edit, &mutex_); 
+    edit.SetPrevLogNumber(0);
+    edit.SetLogNumber(logfile_number_); // Earlier logs no longer needed
+    s = version_->LogAndApply(&edit, &mutex_);
   }
 
     if (s.ok()) {
@@ -601,6 +601,8 @@ void DBImpl::CompactMemtable() {
     RecordBackgroundError(s);
   }
 }
+
+
 
 void DBImpl::CompactRange(const Slice* begin, const Slice* end) {
   int max_level_with_files = 1;
@@ -710,18 +712,18 @@ void DBImpl::BGWork(void* db) {
 
 void DBImpl::BackgroundCall() {
   MutexLock l(&mutex_);
-  assert(bg_compaction_scheduled_); 
+  assert(bg_compaction_scheduled_);
   if(shutting_down_.Acquire_Load()) {
-    // No more background work when shutting down 
+    // No more background work when shutting down
   } else if(!bg_error_.ok()) {
-    // No more background after a background error 
+    // No more background after a background error
   } else {
-    BackgroundCompaction(); 
+    BackgroundCompaction();
   }
 
-  bg_compaction_scheduled_ = false; 
+  bg_compaction_scheduled_ = false;
 
-  // 
+  //
   MaybeScheduleCompaction();
   bg_cv_.SignalAll();
 }
@@ -811,6 +813,91 @@ void DBImpl::BackgroundCompaction() {
   }
 }
 
+
+void DBImpl::CleanupCompaction(CompactionState* compact) {
+  mutex_.AssertHeld();
+  if (compact->builder != NULL) {
+    // May happen if we get a shutdown call in the middle of compaction
+    compact->builder->Abandon();
+    delete compact->builder;
+  } else {
+    assert(compact->outfile == NULL);
+  }
+  delete compact->outfile;
+  for (size_t i = 0; i < compact->outputs.size(); i++) {
+    const CompactionState::Output& out = compact->outputs[i];
+    pending_outputs_.erase(out.number);
+  }
+  delete compact;
+}
+
+
+
+Status DBImpl::OpenCompactionOutputFile(CompactionState* compact) {
+  assert(compact != NULL);
+  assert(compact->builder == NULL);
+  uint64_t file_number;
+  {
+    mutex_.Lock();
+    file_number = versions_->NewFileNumber();
+    pending_outputs_.insert(file_number);
+    CompactionState::Output out;
+    out.number = file_number;
+    out.smallest.Clear();
+    out.largest.Clear();
+    compact->outputs.push_back(out);
+    mutex_.Unlock();
+  }
+
+  // Make the output file
+  std::string fname = TableFileName(dbname_, file_number);
+  Status s = env_->NewWritableFile(fname, &compact->outfile);
+  if (s.ok()) {
+    compact->builder = new TableBuilder(options_, compact->outfile);
+  }
+  return s;
+}
+
+Status DBImpl::Put(const WriteOptions& o, const Slice& key, const Slice& vall) {
+  return DB::Put(o, key, val);
+}
+
+/**
+ * Defautl implementation of convenience methods that subclasses of DB
+ * can call if they wish
+ */
+Status DB::Put(const WriteOptions& opt, const Slice& key, const Slice& value) {
+  WriteBatch batch;
+  batch.Put(key, value);
+  return Write(opt, &batch);
+}
+
+
+Status DBImpl::Write(const WriteOptions& options, WriteBatch* my_batch) {
+  Writer w(&mutex_);
+  w.batch = my_batch;
+  w.sync = options.sync;
+  w.done = false;
+
+  MutexLock l(&mutex_);
+  writers_.push_back(&w);
+  while(!w.done && &w != writers_.front()) {
+    w.cv.wait();
+  }
+
+  if(w.done) {
+    return w.status;
+  }
+
+  // May temporarily unlock and wait
+  Status status = MakeRoomForWrite(my_batch == NULL);
+  uint64_t last_sequence = versions_->LastSequence();
+  Writer* last_write = &w;
+  if(status.ok() && my_batch != NULL) {
+    // NULL batch is fro compactions
+    WriteBatch* updates = BuildBatchGroup(&last_writer); 
+  }
+}
 
 Snapshot::~Snapshot() {
 
